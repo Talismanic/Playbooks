@@ -1,0 +1,83 @@
+---
+- name: Install docker
+  hosts: k8s
+  gather_facts: No
+  become: yes
+  become_user: root
+  vars:
+     yum_path: /etc/yum.repos.d
+     doc_path: /etc/systemd/system/docker.service.d
+     tpl_path: /home/DABSP/kube-cluster/mcms-cluster/ansible/templates
+
+  tasks:
+    - name: Install device-mapper-persistent-data
+      yum:
+        name: device-mapper-persistent-data
+        state: latest
+
+    - name: Install lvm2
+      yum:
+        name: lvm2
+        state: latest
+
+    - name: Add Docker repo
+      # template:
+      #   src={{tpl_path}}/docker-ce.repo.tpl
+      #   dest={{yum_path}}/docker-ce.repo
+
+      environment:
+        http_proxy: http://IP:Port
+        https_proxy: http://IP:Port
+      get_url:
+        url: https://download.docker.com/linux/centos/7/x86_64/stable/Packages/docker-ce-17.12.1.ce-1.el7.centos.x86_64.rpm
+        dest: /tmp/docker-ce.rpm
+
+
+    - name: Downloading container-selinux
+      environment:
+        http_proxy: http://IP:Port
+        https_proxy: http://IP:Port
+      get_url:
+        url: http://mirror.centos.org/centos/7/extras/x86_64/Packages/container-selinux-2.74-1.el7.noarch.rpm
+        dest: /tmp/container-selinux.rpm
+
+    - name: Install container-selinux
+      yum:
+        name: /tmp/container-selinux.rpm
+        state: present
+
+    # - name: Enable Docker Edge repo
+    #   ini_file:
+    #     dest: /etc/yum.repos.d/docer-ce.repo
+    #     section: 'docker-ce-edge'
+    #     option: enabled
+    #     value: 0
+
+    # - name: Enable Docker Test repo
+    #   ini_file:
+    #     dest: /etc/yum.repos.d/docer-ce.repo
+    #     section: 'docker-ce-test'
+    #     option: enabled
+    #     value: 0
+
+    - name: Install Docker
+      yum:
+        name: /tmp/docker-ce.rpm
+        state: present
+
+    - name: Creating docker service directory
+      file:
+        path: /etc/systemd/system/docker.service.d
+        state: directory
+
+    - name: Setting proxy in docker
+      template:
+        src={{tpl_path}}/http-proxy.conf.tpl
+        dest={{doc_path}}/http-proxy.conf
+
+
+    - name: Start Docker service
+      service:
+        name: docker
+        state: started
+        enabled: yes
