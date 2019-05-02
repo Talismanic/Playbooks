@@ -1,0 +1,15 @@
+---
+- name: firewalld_update
+  hosts: all
+  gather_facts: No
+  become: yes
+  become_user: root
+
+  tasks:
+    - name: firewalld rule addition
+      firewalld:
+        port: 8080/tcp
+        permanent: true
+        state: enabled
+        zone: public
+        immediate: yes
