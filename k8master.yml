@@ -1,0 +1,56 @@
+---
+- name: Kubernetes Masters Setup
+  hosts: single_master
+  become: yes
+  vars:
+     tpl_path: /path/to/template_files
+     flannel_conf_path: /etc/cni/net.d
+     proxy_env:
+      http_proxy: {{$PROXY_IF_ANY}}
+      https_proxy: {{$PROXY_IF_ANY}}
+      no_proxy: 127.0.0.1,localhost, 10.244.0.0/16, {{HOST_MACHINES_OF_THE_CLUSTER}}
+    
+
+  tasks:
+    - name: Initialize the cluster
+      environment: "{{proxy_env}}"
+      shell: kubeadm init --pod-network-cidr=10.244.0.0/16 >> cluster_initialized.txt
+      args:
+        chdir: $HOME
+        creates: cluster_initialized.txt
+
+    - name: Create .kube directory
+      become: yes
+      become_user: {{USER_NAME}}
+      file:
+        path: $HOME/.kube
+        state: directory
+        mode: 0755
+
+    - name: Copy admin.conf to user's kube config
+      copy:
+        src: /etc/kubernetes/admin.conf
+        dest: /home/{{USER_NAME}}/.kube/config
+        remote_src: yes
+        owner: {{USER_NAME}}
+
+    - name: Install Pod network
+      become: yes
+      become_user: {{USER_NAME}}
+      environment: "{{proxy_env}}"
+      shell: kubectl apply -f https://raw.githubusercontent.com/coreos/flannel/v0.10.0/Documentation/kube-flannel.yml >> pod_network_setup.txt
+      args:
+        chdir: $HOME
+        creates: pod_network_setup.txt
+
+    - name: Creates net.d directory
+      file:
+        path: /etc/cni/net.d
+        state: directory
+        mode: 0755
+
+    - name: Adding network in net.d for flannel
+      template:
+        src={{tpl_path}}/10-flannel.conflist.tpl
+        dest={{flannel_conf_path}}/10-flannel.conflist
+
