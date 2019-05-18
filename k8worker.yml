@@ -1,0 +1,36 @@
+- hosts: single_master
+  become: yes
+  gather_facts: false
+  tasks:
+    - name: get join command
+      shell: kubeadm token create --print-join-command
+      register: join_command_raw
+
+    - name: set join command
+      set_fact:
+        join_command: "{{ join_command_raw.stdout_lines[0] }}"
+
+
+- hosts: workers
+  become: yes
+  vars:
+     tpl_path: /path/to/templates
+     flannel_conf_path: /etc/cni/net.d
+
+  tasks:
+    - name: join cluster
+      shell: "{{ hostvars['master2'].join_command }} >> node_joined_m2.txt"
+      args:
+        chdir: $HOME
+        creates: node_joined_m2.txt
+
+    - name: Creates net.d directory
+      file:
+        path: /etc/cni/net.d
+        state: directory
+        mode: 0755
+
+    - name: Adding network in net.d for flannel
+      template:
+        src={{tpl_path}}/10-flannel.conflist.tpl
+        dest={{flannel_conf_path}}/10-flannel.conflist
