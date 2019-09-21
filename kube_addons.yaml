@@ -1,0 +1,35 @@
+---
+- name: Install dashboard service
+  hosts: single_master
+  gather_facts: No
+  vars:
+     src_path_template: path_to_templates
+     dest_path_destination: path_to_destination
+
+  tasks:
+    - name: copying dashboad conf
+      template:
+        src={{src_path_template}}/kubernetes-dashboard.yaml.tpl
+        dest={{dest_path_destination}}/kubernetes-dashboard.yaml
+
+    - name: applying dashboad 
+      shell: kubectl apply -f {{dest_path_destination}}/kubernetes-dashboard.yaml
+
+    - name: copying service account configuration
+      template:
+        src={{src_path_template}}/cluster-admin-service-account.yaml.tpl
+        dest={{dest_path_destination}}/cluster-admin-service-account.yaml
+
+    - name: applying service account
+      shell: kubectl apply -f {{dest_path_destination}}/cluster-admin-service-account.yaml
+
+    - name: copying cluster-role-binding
+      template:
+        src={{src_path_template}}/cluster-admin-service-role.yaml.tpl
+        dest={{dest_path_destination}}/cluster-admin-service-role.yaml
+
+    - name: applying service account role
+      shell: kubectl apply -f {{dest_path_destination}}/cluster-admin-service-role.yaml
+
+    - name: saving the token.
+      shell: kubectl -n kube-system describe secret $(kubectl -n kube-system get secret | grep mcms-admin | awk '{print $1}') >> dashboard_token.txt
