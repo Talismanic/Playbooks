@@ -1,0 +1,45 @@
+---
+- name: Draining worker node
+  hosts: single_master
+  become: yes
+  vars:
+    worker:
+      node_name: "{{worker_host}}"
+
+  tasks:
+    - name: draining the node with kubectl
+      shell: kubectl drain {{worker_host}} --delete-local-data --force --ignore-daemonsets
+
+    - name: deleting the node with kubectl
+      shell: kubectl delete node {{worker_host}}
+
+
+- name: Kubernetes Draining Node
+  hosts: workers
+  become: yes
+  
+  
+  tasks:
+    - name: deleting node_joined files
+      shell: rm -rf /root/node_*.txt
+    
+    - name: deleting kubelet.conf
+      file:
+        path: /etc/kubernetes/kubelet.conf
+        state: absent
+
+    - name: deleting ca.crt
+      file:
+        path: /etc/kubernetes/pki/ca.crt
+        state: absent
+
+    - name: deleting kubelet bootstrap.conf
+      file:
+        path: /etc/kubernetes/bootstrap-kubelet.conf
+        state: absent
+
+    - name: reseting kube adm
+      shell: "kubeadm reset --force"
+      ignore_errors: true
+
+
